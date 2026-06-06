@@ -1,0 +1,17 @@
+# MATLAB temporary files and solver logs
+*.asv
+.matlab_prefdir/
+UAVPenetrationSNOPTinfo.txt
+UAVPenetrationIPOPTinfo.txt
+data_create/UAVPenetrationSNOPTinfo.txt
+data_create/UAVPenetrationIPOPTinfo.txt
+
+# Generated, unverified datasets can be large and should be regenerated.
+data/unverified_dataset/
+data/unverified_dataset_verify/
+
+# Local visualization exports generated next to unverified data.
+data/unverified_dataset*/
+
+# Third-party optimal-control toolbox. Keep local unless redistribution is licensed.
+gpops2/
