@@ -26,6 +26,9 @@ files = generate_mist_gnn_dataset("numSamplesPerScenario", 2, "seed", 20260606);
 | --- | --- |
 | `generate_mist_gnn_dataset.m` | MIST-GNN 论文数据集复现入口，默认按五类场景各生成 10000 条未验证样本，并可透传场景参数。 |
 | `generate_penetration_dataset.m` | 数据集生成主入口，负责构造场景、调用 GPOPS 求解、检测轨迹并保存 `.mat`。 |
+| `review_penetration_dataset.m` | 人工核实窗口入口，支持选择样本、窗口内查看 Figure/GIF、确认通过、删除和重新生成。 |
+| `dataset_review_action.m` | 人工核实的脚本接口，支持 `approve`、`delete`、`regenerate` 三类单文件操作。 |
+| `renumber_penetration_dataset.m` | 对 `dataset` 或 `unverified_dataset` 的场景子文件夹自动重编号。 |
 | `build_penetration_scenario.m` | 构造 `static`、`time_sensitive`、`sudden`、`dynamic`、`fusion` 五类场景。 |
 | `assemble_trajectory_data.m` | 组装无人机、目标、威胁轨迹、威胁激活状态和检测概率。 |
 | `sample_target_trajectory.m` | 按时间采样静止或移动目标的位置、速度和方向。 |
@@ -33,7 +36,8 @@ files = generate_mist_gnn_dataset("numSamplesPerScenario", 2, "seed", 20260606);
 | `sample_threat_activity.m` | 判断威胁是否生效；突发威胁按距离触发，触发后不再消失。 |
 | `compute_detection_probability.m` | 计算雷达检测概率字段 `Pt`。 |
 | `validate_penetration_trajectory.m` | 检测起点安全、终点距离、武器穿越和目标可达性。 |
-| `plot_penetration_scene.m` | 绘制静态 PNG 或动态 GIF，也可显示一张可交互 `figure`。 |
+| `plot_penetration_scene.m` | 绘制静态 PNG 或动态 GIF，也可显示可交互 `figure` 或绘制到 GUI 坐标轴。 |
+| `render_penetration_scene_gif_html.m` | 生成人工核实 GUI 内嵌的 GIF 预览 HTML，不向样本目录保存预览文件。 |
 | `plot_mat_variables.m` | 读取指定 `.mat` 文件中的变量并输出关键变量随时间变化图。 |
 | `generate_behavior_showcase_scenarios.m` | 生成突发、动态和融合威胁展示样本，便于观察明显规避行为。 |
 
@@ -210,6 +214,51 @@ plot_penetration_scene(files(1), ...
 - GIF 写入时每帧都会恢复背景，避免半透明突发威胁或动态威胁在下一帧留下残影。
 - 无人机轨迹统一显示为 `UAV trajectory`，不再拆成历史、预测和真实轨迹。
 - 动图会展示无人机飞行历史、目标移动过程、突发威胁出现过程和动态威胁移动过程。
+
+## 人工核实
+
+未验证样本生成后，可使用人工核实窗口逐条检查。核实通过的样本会移动到 `data/dataset/<场景类型>`，核实不通过的样本可以删除或按指定参数重新生成。
+
+```matlab
+addpath('data_create');
+review_penetration_dataset( ...
+    "unverifiedRoot", "data/unverified_dataset", ...
+    "datasetRoot", "data/dataset");
+```
+
+窗口功能：
+
+- 左侧选择未核实数据根目录、场景类型和具体 `.mat` 文件。
+- 中间分为两个可视化区域：左侧为窗口内交互式 Figure，右侧为窗口内 GIF 动态预览。
+- GIF 预览不保存到样本目录；为降低卡顿，长轨迹会按预览帧数自动放大步长。
+- 右侧显示样本元数据和核实操作，包括 `确认通过`、`删除无效`、`重新生成`、`下一条` 和重编号。
+- 右下角 `当前操作状态` 面板会提示正在执行的任务；重新生成、GIF 预览和重编号等较慢操作期间，主要按钮会临时禁用，避免重复触发造成卡顿或状态混乱。
+- 确认通过会把样本移动到 `data/dataset/<场景类型>`；删除或确认后会自动刷新目录并加载下一条样本。
+- 重新生成时可设置 `seed`、`nlpSolver`、`maxAttempts`、`terminalTolerance`，也可在高级参数框中按 `name = value` 形式填写场景参数；未填写的参数使用该场景默认生成规则。
+
+脚本接口示例：
+
+```matlab
+dataset_review_action("approve", ...
+    "data/unverified_dataset/static/trajectory_data_1.mat", ...
+    "datasetRoot", "data/dataset");
+
+dataset_review_action("delete", ...
+    "data/unverified_dataset/static/trajectory_data_2.mat");
+
+dataset_review_action("regenerate", ...
+    "data/unverified_dataset/dynamic/trajectory_data_30001.mat", ...
+    "regenerateOptions", {"maxAttempts", 20, "dynamicThreatSpeedRange", [180, 250]});
+```
+
+对某个场景子文件夹自动重编号：
+
+```matlab
+renumber_penetration_dataset("data/unverified_dataset/static");
+renumber_penetration_dataset("data/dataset/static");
+```
+
+重编号会按原编号排序后重新命名为连续的 `trajectory_data_<index>.mat`，并同步处理同名 `.gif`、`.png` 和 `<文件名>_variable_plots` 文件夹。
 
 ## `.mat` 变量分析
 

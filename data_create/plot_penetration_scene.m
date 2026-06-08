@@ -15,6 +15,7 @@ function [outputFile, fig] = plot_penetration_scene(dataOrFile, varargin)
     parser.addParameter("saveOutput", true, @(x)islogical(x) || isnumeric(x));
     parser.addParameter("makeGif", [], @(x)isempty(x) || islogical(x) || isnumeric(x));
     parser.addParameter("visible", [], @(x)isempty(x) || islogical(x) || isnumeric(x));
+    parser.addParameter("parentAxes", [], @(x)isempty(x) || isgraphics(x));
     parser.parse(dataOrFile, varargin{:});
     opt = parser.Results;
 
@@ -24,6 +25,7 @@ function [outputFile, fig] = plot_penetration_scene(dataOrFile, varargin)
         showFigure = logical(opt.visible);
     end
     saveOutput = logical(opt.saveOutput);
+    hasParentAxes = ~isempty(opt.parentAxes) && isgraphics(opt.parentAxes);
 
     [trajectory_data, sourcePath] = load_trajectory_input(dataOrFile);
     nFrames = numel(trajectory_data.time);
@@ -41,7 +43,18 @@ function [outputFile, fig] = plot_penetration_scene(dataOrFile, varargin)
     end
 
     fig = [];
-    if showFigure
+    if hasParentAxes
+        ax = opt.parentAxes;
+        cla(ax, "reset");
+        draw_scene_frame(trajectory_data, selectedFrame, ax, true);
+        fig = ancestor(ax, "figure");
+        try
+            ax.Toolbar.Visible = "on";
+        catch
+            % 较旧 MATLAB 版本可能没有坐标轴工具栏属性，不影响绘制。
+        end
+        drawnow limitrate;
+    elseif showFigure
         fig = create_scene_figure(true);
         ax = axes(fig);
         draw_scene_frame(trajectory_data, selectedFrame, ax, true);
@@ -57,7 +70,7 @@ function [outputFile, fig] = plot_penetration_scene(dataOrFile, varargin)
             write_scene_png(trajectory_data, outputFile);
         end
         fprintf("Scene saved to %s\n", outputFile);
-    elseif ~showFigure
+    elseif ~showFigure && ~hasParentAxes
         warning("plot_penetration_scene:NoOutput", ...
             "saveOutput=false 且 showFigure=false，未生成图像输出。");
     end

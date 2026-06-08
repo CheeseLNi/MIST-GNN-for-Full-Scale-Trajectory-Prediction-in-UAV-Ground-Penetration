@@ -16,7 +16,7 @@ Each trajectory sample is stored as a MATLAB `.mat` file named `trajectory_data_
 | Dynamic threat | `dynamic` | `30001-40000` | One or two radar/weapon threats move toward predicted intercept points after distance or time activation. |
 | Fusion scenario | `fusion` | `40001-50000` | A randomized combination of moving targets, sudden threats, and dynamic threats. |
 
-Validated data can be placed in `data/dataset`. Newly generated data are written to `data/unverified_dataset/<scenario>` by default, so generated samples do not overwrite manually validated data.
+Validated data can be placed in `data/dataset`. Newly generated data are written to `data/unverified_dataset/<scenario>` by default, so generated samples do not overwrite manually validated data. The manual review tool moves accepted samples into `data/dataset/<scenario>`.
 
 The dataset release is being updated progressively. The committed files in `data/dataset` should be treated as the currently available validated subset, while the generation pipeline in `data_create` is the reproducible interface for extending the dataset to the full planned scale.
 
@@ -38,8 +38,9 @@ flowchart LR
     A["Scenario sampling"] --> B["Optimal-control problem"]
     B --> C["GPOPS-II trajectory solution"]
     C --> D["Trajectory validation"]
-    D --> E["MAT file output"]
-    E --> F["Scene and variable visualization"]
+    D --> E["Unverified MAT output"]
+    E --> F["Manual visual review"]
+    F --> G["Verified dataset"]
 ```
 
 The main reproduction entry is:
@@ -131,6 +132,47 @@ For dynamic threats, `[180,250] m/s` is a balanced speed range for large-scale g
 
 More detailed parameter descriptions are provided in [data_create/README_dataset_generation.md](data_create/README_dataset_generation.md).
 
+## Manual Dataset Review
+
+Generated samples should be checked before they are treated as verified data. Start the review window with:
+
+```matlab
+addpath('data_create');
+review_penetration_dataset( ...
+    "unverifiedRoot", "data/unverified_dataset", ...
+    "datasetRoot", "data/dataset");
+```
+
+The review window supports:
+
+- selecting a dataset folder, scenario type, and individual `.mat` sample;
+- inspecting the scene in an embedded interactive Figure panel;
+- generating an embedded GIF preview in the same window without writing preview files to the sample directory;
+- confirming a sample and moving it to `data/dataset/<scenario>`;
+- deleting an invalid sample;
+- regenerating a sample with the same index using adjustable solver and scenario parameters;
+- automatically loading the next sample after approval or deletion;
+- renumbering all `trajectory_data_*.mat` files in a selected scenario folder;
+- showing the current operation state in the lower-right status panel and temporarily disabling major controls during long operations such as regeneration.
+
+The same operations can also be called from scripts:
+
+```matlab
+dataset_review_action("approve", ...
+    "data/unverified_dataset/static/trajectory_data_1.mat", ...
+    "datasetRoot", "data/dataset");
+
+dataset_review_action("delete", ...
+    "data/unverified_dataset/static/trajectory_data_2.mat");
+
+dataset_review_action("regenerate", ...
+    "data/unverified_dataset/dynamic/trajectory_data_30001.mat", ...
+    "regenerateOptions", {"maxAttempts", 20, "dynamicThreatSpeedRange", [180, 250]});
+
+renumber_penetration_dataset("data/unverified_dataset/static");
+renumber_penetration_dataset("data/dataset/static");
+```
+
 ## MAT File Structure
 
 Each output file stores one `trajectory_data` structure. Main fields include:
@@ -193,6 +235,16 @@ plot_mat_variables("data/unverified_dataset/dynamic/trajectory_data_30001.mat", 
 
 The scene renderer uses class-specific threat colors, UAV trajectory traces, target markers, sudden-threat activation marks, and dynamic-threat motion traces. For moving scenes, GIF output shows UAV flight history, target movement, sudden threat activation, and dynamic threat movement.
 
+## Behavior Showcase
+
+The `behavior_showcase` samples illustrate the most important non-static behaviors used in the dataset: sudden-threat activation, dynamic-threat interception, and fused multi-factor scenes.
+
+| Sudden threat | Dynamic threat | Fusion scenario |
+| --- | --- | --- |
+| <img src="data/unverified_dataset/behavior_showcase/sudden/trajectory_data_70001.gif" alt="Sudden threat behavior showcase" width="320"> | <img src="data/unverified_dataset/behavior_showcase/dynamic/trajectory_data_71001.gif" alt="Dynamic threat behavior showcase" width="320"> | <img src="data/unverified_dataset/behavior_showcase/fusion/trajectory_data_72001.gif" alt="Fusion scenario behavior showcase" width="320"> |
+
+These GIFs are demonstration samples. The full dataset can be regenerated with the commands above and then reviewed with the manual review GUI before being moved into `data/dataset`.
+
 ## Repository Layout
 
 ```text
@@ -203,9 +255,13 @@ MIST-GNN/
 |-- data_create/
 |   |-- generate_mist_gnn_dataset.m
 |   |-- generate_penetration_dataset.m
+|   |-- review_penetration_dataset.m
+|   |-- dataset_review_action.m
+|   |-- renumber_penetration_dataset.m
 |   |-- build_penetration_scenario.m
 |   |-- validate_penetration_trajectory.m
 |   |-- plot_penetration_scene.m
+|   |-- render_penetration_scene_gif_html.m
 |   `-- plot_mat_variables.m
 |-- document/
 |   `-- penetration trajectory reference document
